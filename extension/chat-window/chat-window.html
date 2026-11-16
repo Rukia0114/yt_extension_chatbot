@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video Chat Window</title>
+    <link rel="stylesheet" href="chat-window.css" />
+    <script src="../shared/storage.js" defer></script>
+    <script src="../shared/youtube.js" defer></script>
+    <script src="../shared/api.js" defer></script>
+    <script src="js/core.js" defer></script>
+    <script src="js/tabs.js" defer></script>
+    <script src="js/video.js" defer></script>
+    <script src="js/connection.js" defer></script>
+    <script src="js/insights.js" defer></script>
+    <script src="js/chat.js" defer></script>
+    <script src="js/main.js" defer></script>
+  </head>
+  <body>
+    <header class="header">
+      <div>
+        <h1>Video Chat Bot</h1>
+        <div class="subtle">Connection, quick insight and free to chat in one window</div>
+      </div>
+      <div id="boundStatus" class="badge badge-idle">Checking...</div>
+    </header>
+
+    <nav class="tabBar" aria-label="Window sections">
+      <button id="tabConnection" class="tabBtn" type="button">Connection</button>
+      <button id="tabInsights" class="tabBtn" type="button">Insights</button>
+      <button id="tabChat" class="tabBtn is-active" type="button">Chat</button>
+    </nav>
+
+    <main class="pageStack">
+      <section id="pageConnection" class="page">
+        <details class="card" open>
+          <summary class="collapsible">
+            <span class="sectionTitle">Connection</span>
+            <span class="arrow">▾</span>
+          </summary>
+
+          <div class="row">
+            <div class="muted">Status</div>
+            <div id="linkedPill" class="pill pill-unknown">Unknown</div>
+          </div>
+
+          <div class="row">
+            <div class="muted">Bot</div>
+            <div id="botUsernameValue" class="mono"></div>
+          </div>
+
+          <!-- <div class="row">
+            <div class="muted">Backend</div>
+            <div id="backendValue" class="mono"></div>
+          </div> -->
+
+          <div class="btnGrid">
+            <button id="openBotBtn" type="button">Open Telegram bot</button>
+            <button id="linkBtn" type="button">Connection Link</button>
+          </div>
+
+          <div class="btnGrid topGap">
+            <button id="refreshConnectionBtn" type="button">Refresh Connection</button>
+            <button id="syncBtn" type="button">Sync Video now</button>
+          </div>
+
+          <div id="connectionStatus" class="status"></div>
+          <div id="code" class="mono topGap"></div>
+          <div class="topGap">
+            <a id="tgLink" target="_blank" rel="noreferrer noopener"></a>
+          </div>
+
+          <details class="topGap">
+            <summary class="collapsible">
+              <span>Advanced</span>
+              <span class="arrow">▾</span>
+            </summary>
+
+            <div class="muted topGap">Device</div>
+            <div id="deviceId" class="mono topGap-xs"></div>
+
+            <div class="btnGrid topGap">
+              <button id="resetDeviceBtn" type="button">Reset device</button>
+              <button id="clearLocalBtn" type="button">Clear local data</button>
+            </div>
+          </details>
+        </details>
+      </section>
+
+      <section id="pageInsights" class="page" hidden>
+        <details class="card" open>
+          <summary class="collapsible">
+            <span class="sectionTitle">Current Video</span>
+            <span class="arrow">▾</span>
+          </summary>
+
+          <div id="videoTitle" class="title">Loading...</div>
+          <div id="videoMeta" class="mono"></div>
+          <a id="videoUrl" target="_blank" rel="noreferrer noopener"></a>
+
+          <div class="actions">
+            <button id="focusTabBtn" type="button">Back to YouTube tab</button>
+            <button id="refreshBtn" type="button">Refresh</button>
+            <button id="saveToWatchlistBtn" type="button">Save to watchlist</button>
+          </div>
+          <div id="guestModeHint" class="status topGap-xs"></div>
+          <div id="windowStatus" class="status"></div>
+        </details>
+
+        <section class="card insightsCard">
+          <div class="chatToolbar insightsToolbar">
+            <div>
+              <div class="sectionTitle">Insights</div>
+              <div class="subtle">Summary and highlights for the current video</div>
+              <div id="transcriptStatus" class="status topGap-xs"></div>
+            </div>
+            <div class="toolbarActions">
+             
+              <button id="regenerateInsightsBtn" type="button">Regenerate</button>
+            </div>
+          </div>
+
+          <details class="insightDetails" open>
+            <summary class="collapsible">
+              <span>Summary</span>
+              <span class="arrow">▾</span>
+            </summary>
+            <div id="summaryText" class="pre sectionBody"></div>
+            <div id="summaryStatus" class="status"></div>
+          </details>
+
+          <details class="insightDetails" open>
+            <summary class="collapsible">
+              <span>Highlights</span>
+              <span class="arrow">▾</span>
+            </summary>
+            <div id="highlightsList" class="sectionBody"></div>
+            <div id="highlightsStatus" class="status"></div>
+          </details>
+        </section>
+      </section>
+
+      <section id="pageChat" class="page is-active">
+        <section class="card composerCard">
+          <div class="sectionTitle">Quick Chat</div>
+          <div class="subtle">Type first. Press Enter to send, Shift+Enter for a new line.</div>
+
+          <div class="composerWrap composerWrapTop">
+            <textarea
+              id="chatInput"
+              class="chatInput"
+              placeholder="Ask about this video..."
+              rows="1"
+            ></textarea>
+            <button id="chatSendBtn" class="sendBtn" type="button">Send</button>
+          </div>
+          <div class="proactivePrefs">
+            <div class="prefRow">
+              <label for="chatModeSelect" class="muted">Chat style</label>
+              <select id="chatModeSelect" class="modeSelect">
+                <option value="friendly">Friendly</option>
+                <option value="normal">Normal</option>
+                <option value="educational">Educational</option>
+              </select>
+              <span id="chatModeStatus" class="subtle">Affects reply tone and depth.</span>
+            </div>
+            <div class="prefRow">
+              <label for="proactiveAssistSelect" class="muted">Proactive help</label>
+              <select id="proactiveAssistSelect" class="modeSelect">
+                <option value="calm">Calm</option>
+                <option value="balanced">Balanced</option>
+                <option value="active">Active</option>
+              </select>
+              <span id="proactiveAssistStatus" class="subtle">Controls how often the extension checks in.</span>
+            </div>
+          </div>
+          <div id="chatStatus" class="status"></div>
+        </section>
+
+        <details class="card chatCard" open>
+          <summary class="collapsible chatToolbar">
+            <span class="sectionTitle">Latest Conversation</span>
+            <span class="arrow">▾</span>
+          </summary>
+
+          <div id="latestExchange" class="latestExchange">
+            <div class="chatEmpty">No messages yet. Start the conversation above.</div>
+          </div>
+        </details>
+
+        <details class="card historyCard" open>
+          <summary class="collapsible chatToolbar">
+            <span class="sectionTitle">Past Conversation</span>
+            <span class="subtle">Display past 10 conversations</span>
+            <span class="arrow">▾</span>
+          </summary>
+        
+
+        
+          <div id="historyList" class="historyList">
+            <div class="chatEmpty">Past conversation will appear here.</div>
+          </div>
+          <div class="topGap" style="padding: 0 12px 12px;">
+            <button id="clearChatBtn" type="button">Clear chat history</button>
+          </div>
+        </details>
+      </section>
+    </main>
+    <div id="toastStack" class="toastStack" aria-live="polite" aria-atomic="true"></div>
+  </body>
+</html>

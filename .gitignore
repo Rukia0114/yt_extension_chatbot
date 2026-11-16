@@ -1,0 +1,118 @@
+# Markdown files (optional - uncomment if you want to ignore them)
+# *.md
+
+# macOS
+._*
+.DS_Store
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables (DO NOT COMMIT)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Docker
+docker-compose.yml.dockerized
+.Dockerfile
+docker-*.log
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Database & Data
+database.db
+*.sqlite
+*.sqlite3
+data/*.db
+
+# Build outputs
+dist/
+build/
+*.tgz
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing coverage
+coverage/
+.nyc_output/
+
+# Environment files for different environments
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.tmp
+*.temp
+.tmpfiles
+.tempfiles
+cache/
+.cache/
+
+# Lock files - recommend including for reproducible builds
+package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Documentation artifacts
+/docs/.vuepress/dist/
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# System files
+.Spotlight-V100
+.Trashes
+Desktop.ini
+ehthumbs.db
+
+# PostgreSQL/Database backups
+*.dump
+*.sql.bak
+*.backup
+
+# Redis dumps
+dump.rdb
+appendonly.aof
+
+# Whisper output
+whisper/output/
+tmp/
+temp/
+
+# Node modules from whisper service
+whisper/node_modules/
+
+# NVM
+.nvmrc
+
+PROACTIVE_MESSAGE_FIXES.md
+RENDERING_FIX_SUMMARY.md

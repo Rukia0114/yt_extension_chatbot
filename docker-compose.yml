@@ -1,0 +1,79 @@
+services:
+  app:
+    build: .
+    container_name: chatbot-app
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      USE_WEBHOOK: "${USE_WEBHOOK:-false}"
+
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME}"
+
+      # Must use Docker service names
+      DATABASE_URL: "postgres://postgres:password@db:5432/chatbot"
+      DATABASE_SSL: "false"
+      REDIS_URL: "redis://redis:6379"
+      WHISPER_URL: "http://whisper:9000"
+
+      # From .env (Ollama)
+      LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:11434/v1}"
+      LLM_MODEL: "${LLM_MODEL}"
+      YOUTUBE_API_KEY: "${YOUTUBE_API_KEY:-}"
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      whisper:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm run migrate && npm run dev"
+
+  db:
+    image: postgres:16-alpine
+    container_name: chatbot-db
+    environment:
+      POSTGRES_DB: chatbot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+
+  whisper:
+    build: ./whisper
+    container_name: chatbot-whisper
+    environment:
+      DATABASE_URL: "postgres://postgres:password@db:5432/chatbot"
+      VIDEO_DIR: "/tmp/video"
+      WHISPER_MODEL: "${WHISPER_MODEL:-small}"
+      WHISPER_DEVICE: "${WHISPER_DEVICE:-cpu}"
+      WHISPER_COMPUTE_TYPE: "${WHISPER_COMPUTE_TYPE:-int8}"
+      LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:11434/v1}"
+      LLM_MODEL: "${LLM_MODEL}"
+      REDIS_URL: "redis://redis:6379"
+    volumes:
+      - ./whisper:/app
+    depends_on:
+      db:
+        condition: service_started
+    ports:
+      - "127.0.0.1:9000:9000"
+
+volumes:
+  db_data:
+  redis_data:

@@ -1,0 +1,15 @@
+module.exports = {
+    start: require('./start'),
+    help: require('./help'),
+    clear: require('./clear'),
+    recommendations: require('./recommendations'),
+    summary: require('./summary'),
+    watchlist: require('./watchlist'),
+    switch: require('./switch'),
+    save: require('./save'),
+    question: require('./question'),
+    highlight: require('./highlight'),
+    showCurrentVideo: require('./showCurrentVideo'),
+    source: require('./source'),
+    mode: require('./mode'),
+  };

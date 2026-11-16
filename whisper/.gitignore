@@ -1,0 +1,63 @@
+# Environment variables - DO NOT COMMIT SECRETS!
+.env
+.env.local
+.env.development.local
+.env.test.local
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Pytest coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Database dumps
+*.db
+*.sqlite
+*.dump
+
+# Test data (optional - remove if you want test data)
+# test_data/
+
+# Any files with secrets or API keys in names
+test_youtube.py
+test_env.py
+*.secret*
+
+__pycache__/

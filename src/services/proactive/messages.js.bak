@@ -1,0 +1,337 @@
+const { sanitizeBotText } = require("../../utils/formatting");
+const { DEFAULT_SKIP_ACTION } = require("./constants");
+const { summarizeInteractionProfile } = require("./interaction");
+const { normalizeText, truncate } = require("./shared");
+
+function getTriggerLabel(reason) {
+  if (reason === "video_complete") return "Video complete";
+  if (reason === "key_moment") return "Key idea";
+  if (reason === "definition") return "New term";
+  if (reason === "complex_concept") return "Difficult part";
+  if (reason === "rewatch_confusion") return "Rewatch detected";
+  if (reason === "hesitation_confusion") return "Hesitation detected";
+  if (reason === "rhetorical_question") return "Key question";
+  if (reason === "long_pause") return "Paused here";
+  if (reason === "resume_after_break") return "Welcome back";
+  if (reason === "forward_jump") return "Jumped ahead";
+  if (reason === "section_start") return "New section";
+  if (reason === "progress_checkpoint") return "Progress checkpoint";
+  return "Helpful moment";
+}
+
+function getTriggerWritingInstruction(reason) {
+  if (reason === "key_moment") return "Treat this as an important idea in the video. Briefly say why it matters, then offer one low-friction follow-up.";
+  if (reason === "definition") return "Explain why the term matters in plain language, then offer one simple next step.";
+  if (reason === "complex_concept") return "Acknowledge that this part may be difficult, then offer a breakdown, recap, or analogy.";
+  if (reason === "rewatch_confusion") return "Treat repeated backward seeking as likely confusion. Name the exact point, clarify what likely caused confusion, and offer a direct rescue path.";
+  if (reason === "hesitation_confusion") return "Treat repeated pause/play hesitation as uncertainty. Keep tone calm, clarify the current point in one line, then ask if the user wants deeper explanation.";
+  if (reason === "rhetorical_question") return "Surface the implied question and offer a direct-answer follow-up.";
+  if (reason === "video_complete") return "Help the user consolidate the video with a recap, self-check, or next-step suggestion.";
+  if (reason === "long_pause") return "Treat this as a paused moment on specific content. Mention the paused point, summarize what it means now, and ask whether the user wants clarification.";
+  if (reason === "resume_after_break") return "Help the user re-enter smoothly after a break by bridging what they missed and what matters now.";
+  if (reason === "forward_jump") return "Assume the user skipped ahead. Briefly bridge the missing context and offer to clarify the exact point now on screen.";
+  if (reason === "section_start") return "Bridge the previous section to the new one and help the user refocus.";
+  if (reason === "progress_checkpoint") return "Use this as a natural orientation moment: explain what the current spoken part is saying in plain language, then optionally add what to watch next.";
+  return "Make the message timely, concrete, and easy to act on.";
+}
+
+function getQuickActionsForTrigger(reason) {
+  if (reason === "key_moment") {
+    return [
+      { id: "explain", label: "Explain this part", message: "Can you explain this key point in simple words?" },
+      { id: "ai_view", label: "Viewpoint", message: "What is your My take on this point?" },
+      { id: "focus", label: "Why it matters", message: "Why is this an important point in the video?" },
+    ];
+  }
+  if (reason === "video_complete") {
+    return [
+      { id: "recap", label: "3 takeaways", message: "Can you give me 3 key takeaways from the whole video?" },
+      { id: "question", label: "Test me", message: "Can you ask me one question to test my understanding?" },
+      { id: "next", label: "What next?", message: "What should I watch or learn next after this video?" },
+    ];
+  }
+  if (reason === "definition") {
+    return [
+      { id: "explain", label: "Simpler wording", message: "Can you explain this term in simpler words?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your view on this definition in this video?" },
+      { id: "importance", label: "Why it matters", message: "Why does this matter in the video?" },
+    ];
+  }
+  if (reason === "complex_concept") {
+    return [
+      { id: "explain", label: "Explain this part", message: "Can you explain this difficult part in simpler words?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your perspective on this concept?" },
+      { id: "breakdown", label: "Step by step", message: "Can you break this down step by step?" },
+    ];
+  }
+  if (reason === "rewatch_confusion") {
+    return [
+      { id: "explain", label: "Explain this point", message: "I got confused here. Can you explain this exact point simply?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your take on why this point is tricky?" },
+      { id: "breakdown", label: "Step by step", message: "Can you break this part down step by step?" },
+    ];
+  }
+  if (reason === "hesitation_confusion") {
+    return [
+      { id: "explain", label: "Explain now", message: "Can you explain what this current point means?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your take on this current point?" },
+      { id: "focus", label: "Key point", message: "What is the key point I should focus on here?" },
+    ];
+  }
+  if (reason === "rhetorical_question") {
+    return [
+      { id: "answer", label: "Direct answer", message: "What is the direct answer to that question?" },
+      { id: "example", label: "Give example", message: "Can you give a quick example here?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (reason === "long_pause") {
+    return [
+      { id: "explain", label: "Explain paused part", message: "I paused here. Can you explain this part for me?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your take on the content at this paused point?" },
+      { id: "recap", label: "Quick recap", message: "Can you give me a quick recap of what just happened?" },
+    ];
+  }
+  if (reason === "resume_after_break") {
+    return [
+      { id: "bridge", label: "Catch me up", message: "Can you catch me up on what I missed before this part?" },
+      { id: "focus", label: "What matters now", message: "What matters most right now?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (reason === "forward_jump") {
+    return [
+      { id: "bridge", label: "Bridge it", message: "Can you quickly bridge what I skipped before this point?" },
+      { id: "explain", label: "Explain this point", message: "Can you explain the part I'm at right now?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your take on this point after the jump?" },
+    ];
+  }
+  if (reason === "section_start") {
+    return [
+      { id: "bridge", label: "Bridge it", message: "Can you connect this new section to what came before?" },
+      { id: "explain", label: "Explain section", message: "Can you explain what this new section is about?" },
+      { id: "ai_view", label: "viewpoint", message: "What is your take on this new section?" },
+    ];
+  }
+  if (reason === "progress_checkpoint") {
+    return [
+      { id: "prev", label: "What happened before", message: "What happened right before this point?" },
+      { id: "next", label: "What next", message: "What should I watch for next from this point?" },
+      { id: "recap", label: "Quick recap", message: "Can you give me a quick recap of where I am in the video?" },
+    ];
+  }
+  return [
+    { id: "recap", label: "Quick recap", message: "Can you give me a quick recap?" },
+    { id: "focus", label: "Key point", message: "What is the key point here?" },
+    { id: "skip", label: "Skip", message: "" },
+  ];
+}
+
+function tailorQuickActions(actions, profile) {
+  const summary = summarizeInteractionProfile(profile);
+  const candidates = Array.isArray(actions) ? [...actions] : [];
+  if (!candidates.length) return [];
+
+  const scoreAction = (action) => {
+    const id = String(action?.id || "");
+    let score = 0;
+    if (summary.explainHeavy && ["explain", "importance", "focus", "breakdown", "bridge"].includes(id)) score += 4;
+    if (summary.exampleHeavy && ["example", "analogy"].includes(id)) score += 4;
+    if (summary.engagedHeavy && ["question", "next", "answer", "bridge", "ai_view"].includes(id)) score += 2;
+    if (summary.skipHeavy && id === "skip") score += 5;
+    if (summary.skipHeavy && ["explain", "recap", "focus"].includes(id)) score += 1;
+    return score;
+  };
+
+  candidates.sort((a, b) => scoreAction(b) - scoreAction(a));
+
+  if (summary.skipHeavy) {
+    const picked = candidates.filter((action) => action.id !== "skip").slice(0, 2);
+    if (!picked.some((action) => action.id === "skip")) picked.push(DEFAULT_SKIP_ACTION);
+    return picked;
+  }
+
+  return candidates.slice(0, 3);
+}
+
+function getQuickActionsForMessage(message, reason) {
+  const text = normalizeText(message).toLowerCase();
+  const base = getQuickActionsForTrigger(reason);
+  if (!text) return base;
+
+  if (/\b(define|definition|means|mean|plain-language|plain language|simpler|simple)\b/.test(text)) {
+    return [
+      { id: "explain", label: "Explain simply", message: "Can you explain this simply?" },
+      { id: "example", label: "Give example", message: "Can you give a quick example?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(example|for instance|for example|analogy|compare|comparison)\b/.test(text)) {
+    return [
+      { id: "example", label: "Another example", message: "Can you give me another quick example?" },
+      { id: "analogy", label: "Use analogy", message: "Can you explain this with a simple analogy?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(recap|summary|summarize|what happened|catch up|bridge)\b/.test(text)) {
+    return [
+      { id: "recap", label: "Quick recap", message: "Can you give me a quick recap?" },
+      { id: "focus", label: "Key point", message: "What is the key point here?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(test|check|question|quiz|understanding)\b/.test(text)) {
+    return [
+      { id: "question", label: "Test me", message: "Can you ask me one question to test my understanding?" },
+      { id: "hint", label: "Give hint", message: "Can you give me a hint first?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(goal|focus|study|watch for|pay attention)\b/.test(text)) {
+    return [
+      { id: "focus", label: "Key point", message: "What should I focus on here?" },
+      { id: "recap", label: "Quick recap", message: "Can you give me a quick recap before I continue?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(step by step|break down|break it down|walk through)\b/.test(text)) {
+    return [
+      { id: "breakdown", label: "Break it down", message: "Can you break this down step by step?" },
+      { id: "example", label: "Give example", message: "Can you give a quick example?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+  if (/\b(viewpoint|your take|your view|opinion|perspective|agree|disagree|counterpoint)\b/.test(text)) {
+    return [
+      { id: "ai_view", label: "viewpoint", message: "What is your viewpoint on this current content?" },
+      { id: "explain", label: "Explain this part", message: "Can you explain this part simply first?" },
+      { id: "skip", label: "Skip", message: "" },
+    ];
+  }
+
+  return base;
+}
+
+function normalizeChatMode(chatModeRaw) {
+  const mode = String(chatModeRaw || "friendly").trim().toLowerCase();
+  if (mode === "academic") return "educational";
+  if (mode === "normal" || mode === "educational") return mode;
+  return "friendly";
+}
+
+function getChatModeStyleInstruction(chatModeRaw) {
+  const chatMode = normalizeChatMode(chatModeRaw);
+  if (chatMode === "educational") {
+    return "Match educational chat mode: sound like a concise teacher, emphasize understanding, and prefer clear explanation over casual chit-chat. Do not use emojis.";
+  }
+  if (chatMode === "normal") {
+    return "Match normal chat mode: sound clear, practical, and neutral. Keep it concise and useful, not playful. Do not use emojis.";
+  }
+  return "Match friendly chat mode: sound warm, simple, and conversational. Keep it low-friction and natural.";
+}
+
+function getChatModeTemperature(chatModeRaw) {
+  const chatMode = normalizeChatMode(chatModeRaw);
+  if (chatMode === "educational") return 0.42;
+  if (chatMode === "normal") return 0.5;
+  return 0.62;
+}
+
+function buildPromptStyleInstruction(profile, reason, chatMode) {
+  const summary = summarizeInteractionProfile(profile);
+  const chatModeInstruction = getChatModeStyleInstruction(chatMode);
+  if (summary.skipHeavy) {
+    const brevityInstruction = reason === "video_complete"
+      ? "Keep it to one short sentence and one optional next-step question. Avoid hype."
+      : "Keep it to one short sentence unless a second sentence is clearly useful. Avoid hype or filler.";
+    return `${chatModeInstruction} ${brevityInstruction}`;
+  }
+  if (summary.explainHeavy) return `${chatModeInstruction} Prefer plain-language explanation over abstract wording.`;
+  if (summary.exampleHeavy) return `${chatModeInstruction} Include one tiny concrete example when it fits naturally.`;
+  if (summary.engagedHeavy) return `${chatModeInstruction} You may include a short reflective follow-up question if it feels helpful.`;
+  return `${chatModeInstruction} Prefer concrete wording over generic encouragement.`;
+}
+
+function shouldUsePlayfulProactiveStyle(proactiveMode, profile, chatMode) {
+  if (normalizeChatMode(chatMode) !== "friendly") return false;
+  const mode = String(proactiveMode || "balanced").trim().toLowerCase();
+  const summary = summarizeInteractionProfile(profile);
+  if (summary.skipHeavy) return false;
+  if (mode === "active") return true;
+  if (mode === "balanced" && summary.engagedHeavy) return true;
+  return false;
+}
+
+async function callLLM({ prompt, proactiveMode, profile, chatMode }) {
+  const llmBaseUrl = process.env.LLM_BASE_URL || "http://localhost:11434/v1";
+  const llmModel = process.env.LLM_MODEL || "openai/gpt-oss-20b";
+  const normalizedChatMode = normalizeChatMode(chatMode);
+  const playfulStyle = shouldUsePlayfulProactiveStyle(proactiveMode, profile, normalizedChatMode);
+  const temperature = getChatModeTemperature(normalizedChatMode);
+
+  const resp = await fetch(`${llmBaseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: llmModel,
+      stream: false,
+      temperature,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a proactive learning companion inside a video extension. " +
+            "Write one timely, concrete message in 1-2 short sentences, usually 18-50 words. " +
+            "First explain why this exact moment matters, then offer one low-friction follow-up when useful. " +
+            getChatModeStyleInstruction(normalizedChatMode) + " " +
+            (
+              playfulStyle
+                ? "No markdown, no bullets. You may use at most one tiny WhatsApp-style reaction such as haha, aw, or one subtle emoji only when it feels natural. If you use it, place it on its own short final line, not inside a sentence."
+                : "No markdown, no bullets, no emojis."
+            ),
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 120,
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(text || `LLM HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json().catch(() => ({}));
+  return sanitizeBotText(normalizeText(data?.choices?.[0]?.message?.content || ""), {
+    preserveEmojis: playfulStyle,
+    separateFriendlyReaction: playfulStyle,
+    compactFriendlyReaction: playfulStyle,
+  });
+}
+
+function getFallbackMessage(reason) {
+  if (reason === "key_moment") return "This feels like one of the key ideas in the video. Want a quick recap of why it matters?";
+  if (reason === "long_pause") return "Quick check-in: you paused at this point. Want me to clarify exactly what this part means?";
+  if (reason === "resume_after_break") return "Welcome back. Want a quick bridge to where the video is now?";
+  if (reason === "forward_jump") return "You jumped ahead. Want a quick bridge and clarification for this current point?";
+  if (reason === "rewatch_confusion") return "You revisited this part a few times. Want me to clarify this exact point in simpler words?";
+  if (reason === "hesitation_confusion") return "This part seems a bit sticky. Want a simple clarification before you continue?";
+  if (reason === "rhetorical_question") return "That sounded like an important question in the video. Want me to suggest a direct answer?";
+  if (reason === "definition") return "This section introduces a definition. Want a plain-language version?";
+  if (reason === "complex_concept") return "This part introduces a complex concept. Want a quick analogy before you continue?";
+  if (reason === "progress_checkpoint") return "Checkpoint: want a quick explanation of what this current part is saying?";
+  return "You just entered a new section. Want a one-line summary of this part?";
+}
+
+module.exports = {
+  getTriggerLabel,
+  getTriggerWritingInstruction,
+  getQuickActionsForTrigger,
+  tailorQuickActions,
+  getQuickActionsForMessage,
+  buildPromptStyleInstruction,
+  callLLM,
+  getFallbackMessage,
+  shouldUsePlayfulProactiveStyle,
+  normalizeChatMode,
+};
