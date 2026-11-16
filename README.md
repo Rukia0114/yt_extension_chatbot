@@ -6,7 +6,9 @@ End-to-end system for video-centric AI assistance with:
 - Transcript/summary/highlight ingestion from Whisper service
 - Multi-mode chat (`friendly`, `normal`, `educational`)
 - Proactive in-video guidance triggered by watch behavior and content importance
+<img width="700"  alt="image" src="https://github.com/user-attachments/assets/a8a0229b-f84e-4b20-acd9-2159dcb0cab1" />
 
+<img width="778" height="344" alt="chat" src="https://github.com/user-attachments/assets/55612491-c935-4cf1-b5b9-cf76b19a45d4" />
 
 ## 1) Setup and Run
 
@@ -149,3 +151,6 @@ Registered in `src/bot/index.js`:
 - `/clear`
 
 ---
+<img width="604"  alt="image" src="https://github.com/user-attachments/assets/8a66b7bc-c4ad-4cf9-ab52-9c3aef9ae211" />
+<img width="700"  alt="image" src="https://github.com/user-attachments/assets/117f4edb-51f1-4cdc-9730-7c6246b72d4a" />
+
